@@ -178,18 +178,12 @@ def upload(request, project_id):
             name = request.POST.get('name', False)
             upload_path = store_uploaded_file(name, request.FILES['file'])
 
-            #A1 - Injection (SQLi)
-            curs = connection.cursor()
-            curs.execute(
-                "insert into taskManager_file ('name','path','project_id') values ('%s','%s',%s)" %
-                (name, upload_path, project_id))
+            file = File(
+            name = name,
+            path = upload_path,
+            project = proj)
 
-            # file = File(
-            #name = name,
-            #path = upload_path,
-            # project = proj)
-
-            # file.save()
+            file.save()
 
             return redirect('/taskManager/' + project_id +
                             '/', {'new_file_added': True})
@@ -376,7 +370,8 @@ def project_edit(request, project_id):
 def project_delete(request, project_id):
     # IDOR
     project = Project.objects.get(pk=project_id)
-    project.delete()
+    if request.user in project.user_assigned.all():
+        project.delete()
     return redirect('/taskManager/dashboard')
 
 # A10: Open Redirect
@@ -580,7 +575,8 @@ def note_delete(request, project_id, task_id, note_id):
     if proj is not None:
         if task is not None and task.project == proj:
             if note is not None and note.task == task:
-                note.delete()
+                if request.user in proj.user_assigned.all():
+                    note.delete()
 
     return redirect('/taskManager/' + project_id + '/' + task_id)
 
@@ -702,13 +698,13 @@ def profile(request):
 # A8: Cross Site Request Forgery (CSRF)
 
 
-@csrf_exempt
+
 def profile_by_id(request, user_id):
     user = User.objects.get(pk=user_id)
 
     if request.method == 'POST':
         form = ProfileForm(request.POST, request.FILES)
-        if form.is_valid():
+        if form.is_valid() and request.user is user:
             print("made it!")
             if request.POST.get('username') != user.username:
                 user.username = request.POST.get('username')
@@ -731,7 +727,7 @@ def profile_by_id(request, user_id):
 
 # A8: Cross Site Request Forgery (CSRF)
 
-@csrf_exempt
+
 def reset_password(request):
 
     if request.method == 'POST':
@@ -771,7 +767,7 @@ def reset_password(request):
 
 # Vuln: Username Enumeration
 
-@csrf_exempt
+
 def forgot_password(request):
 
     if request.method == 'POST':
@@ -805,7 +801,7 @@ def forgot_password(request):
 
 # A8: Cross Site Request Forgery (CSRF)
 
-@csrf_exempt
+
 def change_password(request):
 
     if request.method == 'POST':
